@@ -1,24 +1,26 @@
 package cz.demo.BankingApp.entity;
 
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
 
-@Entity(name="account")
-@Data
-public class AccountEntity extends ProductDefinitionEntity {
+import java.time.LocalDate;
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private  int productId;
+@Entity
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+
+public class AccountEntity extends Product {
 
     @Column(nullable = false)
     private String iBan;
 
     @Column(nullable = false)
-    private int Balance;
+    @JsonFormat(pattern = "YYYY-MM-DD")
+    private LocalDate created;
 
-    @ManyToOne
-    private UserEntity owner;
 
 }

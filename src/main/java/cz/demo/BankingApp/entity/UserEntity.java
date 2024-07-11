@@ -1,12 +1,15 @@
 package cz.demo.BankingApp.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
 
 import java.util.ArrayList;
 
-@Entity(name = "user")
-@Data
+@Entity (name = "user")
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 public class UserEntity {
 
     @Id
@@ -32,8 +35,7 @@ public class UserEntity {
     private String phoneNumber;//tel číslo +420...
 
     @OneToMany(mappedBy = "owner")
-    private ArrayList<LoanEntity> loans;
+    private ArrayList<Product> products;
 
-    @OneToMany(mappedBy = "owner")
-    private ArrayList<AccountEntity> accounts;
+
 }

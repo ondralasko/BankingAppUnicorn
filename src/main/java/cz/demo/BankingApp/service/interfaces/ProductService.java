@@ -2,7 +2,13 @@ package cz.demo.BankingApp.service.interfaces;
 
 import cz.demo.BankingApp.dto.ProductDefinitionDTO;
 
+import java.time.LocalDate;
+import java.util.List;
+
 public interface ProductService {
-    public ProductDefinitionDTO crateNewProductDefinition(ProductDefinitionDTO newDefinition);
-    public ProductDefinitionDTO updateProductDefinition (ProductDefinitionDTO newDefinition);
+    List<ProductDefinitionDTO> getAllDefinitions();
+    ProductDefinitionDTO getDefinitionByProductKey(String key);
+    ProductDefinitionDTO crateNewProductDefinition(ProductDefinitionDTO newDefinition);
+    ProductDefinitionDTO updateProductDefinition (ProductDefinitionDTO newDefinition);
+    List<ProductDefinitionDTO> billProducts();
 }

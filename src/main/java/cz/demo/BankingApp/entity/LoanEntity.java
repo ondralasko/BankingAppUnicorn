@@ -3,33 +3,34 @@ package cz.demo.BankingApp.entity;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import lombok.*;
+
 
 import java.time.LocalDate;
 
 
-@EqualsAndHashCode(callSuper = true)
-@Entity(name="loan")
-@Data
-public class LoanEntity extends ProductDefinitionEntity {
+@Entity
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int productId;
+public class LoanEntity extends Product {
 
     @Column(nullable = false)
     private int amountBorrowed;
 
+    @Column
+    private int fixedRate;
+
     @Column(nullable = false)
-    private int amountRemaining;
+    private int numberOfPaymentsRemaining;
+
+    @Column(nullable = false)
+    private int totalNumberOfPayments;
 
     @Column(nullable = false)
     @JsonFormat(pattern = "YYYY-MM-DD")
     private LocalDate created;
 
-    
-
-    @ManyToOne
-    private UserEntity owner;
 }
