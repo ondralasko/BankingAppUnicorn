@@ -14,13 +14,13 @@ public class UserEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int Id;
+    private Integer Id;
 
     @Column(nullable = false)
     private String password;
 
     @Column(nullable = false)
-    private String firstNAme;
+    private String firstName;
 
     @Column(nullable = false)
     private String lastName;
@@ -33,9 +33,10 @@ public class UserEntity {
 
     @Column(nullable = false)
     private String phoneNumber;//tel číslo +420...
-
+    /*
     @OneToMany(mappedBy = "owner")
-    private ArrayList<Product> products;
+    private ArrayList<ProductEntity> products;
+    */
 
 
 }

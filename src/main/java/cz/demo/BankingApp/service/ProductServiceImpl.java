@@ -1,30 +1,29 @@
 package cz.demo.BankingApp.service;
 
-import cz.demo.BankingApp.constant.Operation;
-import cz.demo.BankingApp.constant.PayRateUnit;
-import cz.demo.BankingApp.dto.AccountDTO;
-import cz.demo.BankingApp.dto.LoanDTO;
-import cz.demo.BankingApp.dto.Mapper.AccountMapper;
-import cz.demo.BankingApp.dto.Mapper.LoanMapper;
+import cz.demo.BankingApp.constant.ProductType;
+import cz.demo.BankingApp.dto.Mapper.ProductMapper;
 import cz.demo.BankingApp.dto.Mapper.ProductDefinitionMapper;
 import cz.demo.BankingApp.dto.ProductDefinitionDTO;
-import cz.demo.BankingApp.entity.AccountEntity;
-import cz.demo.BankingApp.entity.LoanEntity;
-import cz.demo.BankingApp.entity.ProductDefinitionEntity;
+import cz.demo.BankingApp.entity.*;
 
-import cz.demo.BankingApp.entity.Product;
-import cz.demo.BankingApp.entity.repository.AccountRepository;
-import cz.demo.BankingApp.entity.repository.LoanRepository;
 import cz.demo.BankingApp.entity.repository.ProductDefinitionRepository;
+import cz.demo.BankingApp.entity.repository.ProductRepository;
+import cz.demo.BankingApp.entity.repository.UserRepository;
 import cz.demo.BankingApp.service.interfaces.ProductService;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.List;
-import java.util.stream.Stream;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.concurrent.Future;
+
 
 @Service
 @EnableAsync
@@ -35,19 +34,17 @@ public class ProductServiceImpl implements ProductService {
     @Autowired
     ProductDefinitionMapper productDefinitionMapper;
     @Autowired
-    AccountRepository accountRepository;
+    ProductRepository productRepository;
     @Autowired
-    LoanRepository loanRepository;
+    ProductMapper productMapper;
     @Autowired
-    AccountMapper accountMapper;
-    @Autowired
-    LoanMapper loanMapper;
+    UserRepository userRepository;
 
 
     @Override
     public List<ProductDefinitionDTO> getAllDefinitions() {
         return productDefinitionRepository.findAll().stream()
-                .map(m->productDefinitionMapper.toDTO(m))
+                .map(m -> productDefinitionMapper.toDTO(m))
                 .toList();
     }
 
@@ -63,96 +60,80 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public void generateTestData() {
+        ProductDefinitionEntity loanDefinition = productDefinitionRepository.findByProductKey("TEST01");
+        ProductDefinitionEntity accountDefinition = productDefinitionRepository.findByProductKey("TEST02");
+        UserEntity user = new UserEntity(null, "password","test", "testovic", "test@test.com", "123456/1234","+420123456789");
+        LocalDate datum = LocalDate.of(1980, 1, 1);
+        ProductEntity account = new ProductEntity(null, accountDefinition, datum, user, 100000000.0f, null, null,"CZ00000000000110010", null, null, datum);
+        ProductEntity loan = new ProductEntity(null, loanDefinition, datum, user, 100000000.0f, 100000000, 100,"CZ00000000000110010", 50, 50, datum);
+        userRepository.saveAndFlush(user);
+        productRepository.saveAndFlush(loan);
+        productRepository.saveAndFlush(account);
+    }
+
+    @Override
     public ProductDefinitionDTO updateProductDefinition(ProductDefinitionDTO newDefinition) {
         ProductDefinitionEntity entity = productDefinitionRepository.findByProductKey(newDefinition.getProductKey());
-        for(Product e: entity.getProducts()){
-            float newRatio = newDefinition.getRate()/e.getProductDefinition().getRate();
-            if(e.getProductDefinition().getRate()>1){
-                int newRate = Math.round(e.getProductDefinition().getRate()*newRatio);
-                e.getProductDefinition().setRate(newRate);
-            }else{
-                float newRate= Math.round(e.getProductDefinition().getRate()*newRatio * 100)/100.0F;
-                e.getProductDefinition().setRate(newRate);
-            }
-            e.getProductDefinition().setUnit(newDefinition.getUnit());
-            e.getProductDefinition().setPayRateValue(newDefinition.getPayRateValue());
-        }
         ProductDefinitionEntity updatedEntity = productDefinitionMapper.dtoToEntityRemap(entity, newDefinition);
         return productDefinitionMapper.toDTO(productDefinitionRepository.saveAndFlush(updatedEntity));
     }
 
-    @Async
-    private List<AccountDTO> billAccounts(LocalDate today) {
-        List<AccountEntity> entitiesToBill = accountRepository.findByNextBillingDate(today);
-        for(AccountEntity entity:entitiesToBill){
-            if(entity.getProductDefinition().getRate()>1){
-                entity.setBalance(entity.getBalance()-entity.getProductDefinition().getRate());
-            }else{
-                entity.setBalance(entity.getBalance()-entity.getBalance()*entity.getProductDefinition().getRate());
+    @Override
+    @PostConstruct
+    public void setBillingDate() {
+
+        Timer timer = new Timer();
+        LocalDate today = LocalDate.now();
+        LocalDateTime tomorrowMidnight = LocalDateTime.of(today.plusDays(1), LocalTime.of(0,0,0));
+        long delay = ChronoUnit.MILLIS.between(LocalDateTime.now(),tomorrowMidnight);
+        TimerTask task = new TimerTask() {
+            @Override
+            public void run() {
+                billProducts(LocalDate.now());
             }
-            switch(entity.getProductDefinition().getUnit()){
-                case DAY -> {
-                    LocalDate nextBill = entity.getNextBillingDate().plusDays(entity.getProductDefinition().getPayRateValue());
-                    entity.setNextBillingDate(nextBill);
-                }
-                case MONTH -> {
-                    LocalDate nextBill = entity.getNextBillingDate().plusMonths(entity.getProductDefinition().getPayRateValue());
-                    entity.setNextBillingDate(nextBill);
-                }
-                default -> {
-                    return null;
-                }
-            }
-        }
-        return accountRepository.saveAllAndFlush(entitiesToBill).stream()
-                .map(accountMapper::toDto)
-                .toList();
+        };
+        timer.schedule(task,delay, 1000*60*60*24);
     }
 
-    @Async
-    private List<LoanDTO> billLoans(LocalDate today) {
-        List<LoanEntity> entitiesToBill = loanRepository.findByNextBillingDate(today);
-        for(LoanEntity entity:entitiesToBill){
-            if(entity.getProductDefinition().getRate()>1){
-                entity.setBalance(entity.getBalance()-entity.getProductDefinition().getRate());
-            }else{
-                float payment = entity.getFixedRate() +
-                        ((entity.getProductDefinition().getRate()*entity.getAmountBorrowed())/entity.getTotalNumberOfPayments());
-                entity.setBalance(entity.getBalance()-payment);
-            }
-            if(entity.getNumberOfPaymentsRemaining()-1==0){
-                entity.setNextBillingDate(null);
-            }else{
-                switch(entity.getProductDefinition().getUnit()){
-                    case DAY -> {
-                        LocalDate nextBill=entity.getNextBillingDate().plusDays(entity.getProductDefinition().getPayRateValue());
-                        entity.setNextBillingDate(nextBill);
-                    }
-                    case MONTH -> {
-                        LocalDate nextBill=entity.getNextBillingDate().plusMonths(entity.getProductDefinition().getPayRateValue());
-                        entity.setNextBillingDate(nextBill);
-                    }
-                    default -> {
-                        return null;
-                    }
-                }
-            }
-        }
-        return loanRepository.saveAllAndFlush(entitiesToBill).stream()
-                .map(loanMapper::toDto)
-                .toList();
-    }
 
     @Override
     @Async
-    public List<ProductDefinitionDTO> billProducts() {
-        LocalDate today =LocalDate.now();
-        try {
-            return Stream.concat(billAccounts(today).stream(), billLoans(today).stream()).toList();
-        }catch (Exception e){
-            System.out.println("Error while billing: "+e);
-            return null;
-        }
+    public Future<List<ProductEntity>> billProducts(LocalDate today) {
+        //find who should pay today
+        List<ProductEntity> productsToBill = productRepository.findByNextBillingDate(today);
 
+        for (ProductEntity e : productsToBill) {
+            //bill everyone
+            if (e.getProductDefinition().getRate() > 1) {
+                e.setBalance(e.getBalance() - e.getProductDefinition().getRate());
+            } else {
+                if (e.getProductDefinition().getProductType() == ProductType.ACCOUNT) {
+                    e.setBalance(e.getBalance() - e.getBalance() * e.getProductDefinition().getRate());
+                } else {
+                    float payment = e.getFixedRate() +
+                            ((e.getAmountBorrowed() * e.getProductDefinition().getRate()) / e.getTotalNumberOfPayments());
+                    e.setBalance(e.getBalance() - payment);
+                }
+            }
+
+            //if loan has been paid off, nextBillingDate=null
+            if (e.getProductDefinition().getProductType() == ProductType.LOAN && e.getNumberOfPaymentsRemaining() == 1) {
+                e.setNextBillingDate(null);
+            } else {
+                //set next billing date
+                switch (e.getProductDefinition().getUnit()) {
+                    case DAY -> {
+                        LocalDate nextBill = today.plusDays(e.getProductDefinition().getPayRateValue());
+                        e.setNextBillingDate(nextBill);
+                    }
+                    case MONTH -> {
+                        LocalDate nextBill = today.plusMonths(e.getProductDefinition().getPayRateValue());
+                        e.setNextBillingDate(nextBill);
+                    }
+                }
+            }
+        }
+        return new AsyncResult<>(productRepository.saveAllAndFlush(productsToBill));
     }
 }

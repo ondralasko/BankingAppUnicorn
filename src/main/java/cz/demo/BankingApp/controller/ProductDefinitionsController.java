@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 
@@ -40,7 +41,14 @@ public class ProductDefinitionsController {
 
     @GetMapping("/")
     public List<ProductDefinitionDTO> getAllDefinitions(){
+
+        //productService.generateTestData(); // #1 Can be used for initial setup
+
+        //productService.billProducts(LocalDate.of(1980,1,1)); // #2 Can be used to try billing process, can also be seen in tests
+
         return productService.getAllDefinitions();
     }
+
+
 
 }

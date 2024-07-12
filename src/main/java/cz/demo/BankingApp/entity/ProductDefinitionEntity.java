@@ -38,6 +38,7 @@ public class ProductDefinitionEntity {
     private int payRateValue; //how frequently account is billed
 
     @OneToMany(mappedBy = "productDefinition")
-    private List<Product> products;
+    private List<ProductEntity> products;
+
 
 }
